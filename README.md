@@ -94,22 +94,6 @@ Open your browser and go to: `http://127.0.0.1:8050`
 6. **Repository Health Dashboard** — KPI summary cards with cross-filtering
 
 ---
-
-## Team Members
-
-| Name | Roll No. | Responsibility |
-|------|----------|----------------|
-| Name 1 | Roll No. | Data Pipeline |
-| Name 2 | Roll No. | Data Pipeline |
-| Name 3 | Roll No. | Feature Engineering |
-| Name 4 | Roll No. | Feature Engineering |
-| Name 5 | Roll No. | Network Analysis |
-| Name 6 | Roll No. | Visualization Development |
-| Name 7 | Roll No. | Visualization Development |
-| Name 8 | Roll No. | Integration and Report |
-
----
-
 ## Course Details
 
 - **Course:** CS661 Big Data Visual Analytics
