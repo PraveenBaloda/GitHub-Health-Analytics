@@ -17,8 +17,9 @@ the full project without asking anyone.
 6. [Project Structure](#6-project-structure)
 7. [Feature Engineering](#7-feature-engineering)
 8. [Tech Stack Decisions](#8-tech-stack-decisions)
-9. [Current Status](#9-current-status)
-10. [What Comes Next](#10-what-comes-next)
+9. [File Guide — What to Do in Each File](#9-file-guide--what-to-do-in-each-file)
+10. [Current Status](#10-current-status)
+11. [What Comes Next](#11-what-comes-next)
 
 ---
 
@@ -318,25 +319,7 @@ See `preprocessing/clean_data.py`
 ---
 
 ## 6. Project Structure
-GitHub-Health-Analytics-CS661/
-├── app/
-│   └── app.py                    # Main Dash application
-├── features/
-│   ├── feature_engineering.py    # Feature computation scripts
-│   ├── bus_factor.csv            # Bus factor per repo
-│   ├── pr_latency.csv            # PR merge latency
-│   ├── issue_response.csv        # Issue response times
-│   ├── contributor_network.csv   # Contributor edges
-│   └── bot_activity.csv          # Bot vs human monthly
-├── preprocessing/
-│   └── clean_data.py             # Data cleaning script
-├── requirements.txt
-├── README.md
-└── PROGRESS.md                   # This file
-
-
-
-
+---
 
 ## 7. Feature Engineering
 
@@ -373,6 +356,7 @@ metrics from it.
 - Sort contributors by activity descending
 - Bus factor = minimum people whose removal costs 
   the project 50% of its activity
+
 ---
 
 ## 7a. Bus Factor — Explained
@@ -428,7 +412,6 @@ import sqlite3
 
 conn = sqlite3.connect('github_analytics.db')
 
-# Pull only push + PR activity, excluding bots
 query = """
 SELECT repo, actor
 FROM events
@@ -438,24 +421,23 @@ WHERE event_type IN ('PushEvent', 'PullRequestEvent')
 df = pd.read_sql(query, conn)
 conn.close()
 
-# Count activity per actor per repo
 activity = (
     df.groupby(['repo', 'actor'])
       .size()
       .reset_index(name='activity_count')
 )
 
-# For each repo, find minimum contributors covering 50% of activity
 def compute_bus_factor(group):
-    sorted_group = group.sort_values('activity_count', ascending=False).reset_index(drop=True)
+    sorted_group = group.sort_values(
+        'activity_count', ascending=False
+    ).reset_index(drop=True)
     total = sorted_group['activity_count'].sum()
     threshold = total * 0.5
-
     cumulative = 0
     for i, row in sorted_group.iterrows():
         cumulative += row['activity_count']
         if cumulative >= threshold:
-            return i + 1  # people needed, 1-indexed
+            return i + 1
     return len(sorted_group)
 
 bus_factor_results = []
@@ -468,7 +450,9 @@ for repo, group in activity.groupby('repo'):
         'total_activity': group['activity_count'].sum()
     })
 
-bus_factor_df = pd.DataFrame(bus_factor_results).sort_values('bus_factor')
+bus_factor_df = pd.DataFrame(
+    bus_factor_results
+).sort_values('bus_factor')
 bus_factor_df.to_csv('bus_factor.csv', index=False)
 ```
 
@@ -476,42 +460,17 @@ bus_factor_df.to_csv('bus_factor.csv', index=False)
 `features/bus_factor.csv` — one row per repo, with:
 
 | Column | Meaning |
-|---|---|
+|--------|---------|
 | repo | repo name |
-| bus_factor | min. people whose removal would cost 50%+ of push/PR activity |
-| total_contributors | how many unique humans contributed |
+| bus_factor | min people whose removal costs 50%+ activity |
+| total_contributors | unique human contributors |
 | total_activity | total push/PR events (bots excluded) |
 
-### Validation — did we trust the numbers?
-Two repos initially looked suspicious: `kubernetes/kubernetes` 
-(bus_factor 56) and `tensorflow/tensorflow` (bus_factor 13) — 
-both had surprisingly low total activity for their size.
-
-We manually queried the top contributors for both repos and 
-found the real explanation: both are dominated by merge bots 
-(`k8s-ci-robot`, `copybara-service[bot]`) that were correctly 
-excluded by our bot filter. What's left is real human activity, 
-which happens to be spread very thin across many contributors — 
-a real finding, not a bug.
-
-**Known limitation:** our bot-detection regex catches most 
-automated accounts (`bot`, `[bot]`, `robot`, `mirror`) but 
-missed `tensorflow-jenkins`, which is likely also automated. 
-Impact is small (573 events, doesn't change the result 
-meaningfully) so we left it as-is. Worth tightening the regex 
-in a future pass if time allows.
-
-### Interesting findings for the presentation
-- `kubernetes/kubernetes`: bus_factor 56 — extremely well 
-  distributed human contribution, almost everything else is bots
-- `pytorch/pytorch`: bus_factor 29 out of 2266 contributors — 
-  large base but still fairly concentrated at the top
-- `vuejs/vue`: bus_factor 22 out of only 190 contributors — 
-  unusually concentrated for a smaller project
+### Interesting findings
 - `tiangolo/fastapi`, `keras-team/keras`, `pallets/flask`: 
-  bus_factor 1 — classic "one maintainer holds it together" risk
-
----
+  bus_factor 1 — one maintainer holds everything together
+- `pytorch/pytorch`: bus_factor 29 out of 2266 contributors
+- `kubernetes/kubernetes`: bus_factor 56 — very well distributed
 
 ### Scripts
 See `features/feature_engineering.py`
@@ -552,5 +511,295 @@ See `features/feature_engineering.py`
 
 ---
 
+## 9. File Guide — What to Do in Each File
+
+This section tells every team member exactly what 
+needs to be written in each file.
+
+---
+
+### `app/globals.py`
 
 
+This file runs once when the app starts. It sets up 
+the shared database connection and loads constants 
+that every other file needs.
+
+What to put here:
+- Path to `github_analytics.db`
+- A `get_connection()` function that returns a SQLite connection
+- `REPOS` list — all 30 repo names loaded from the database
+- `ECOSYSTEMS` list — ['Frontend', 'ML/Data', 'Backend/DevOps']
+- `MONTHS` list — all year_month values from the database
+
+Every other file imports from here. Do not duplicate 
+these values anywhere else.
+
+---
+
+### `src/data_loader.py`
+
+
+This file contains all the functions that query the 
+database. No other file should write raw SQL — they 
+all call functions from here.
+
+Functions to write:
+- `load_events(repos, ecosystem, start_month, end_month, include_bots)`
+  → returns filtered rows from the events table
+- `load_pr_latency(repos)` 
+  → returns rows from pr_latency table
+- `load_issue_response(repos)` 
+  → returns rows from issue_response table
+- `load_bot_activity(repos)` 
+  → returns rows from bot_activity table
+- `load_bus_factor(repos)` 
+  → returns rows from bus_factor table
+- `load_contributor_network(repo)` 
+  → returns edges from contributor_network table
+
+---
+
+### `src/analytics.py`
+
+
+This file contains helper functions that compute 
+derived metrics from raw DataFrames. These functions 
+are called by the callbacks before plotting.
+
+Functions to write:
+- `compute_monthly_activity(df)` 
+  → group events by repo and month, return counts
+- `compute_ecosystem_monthly(df)` 
+  → group events by ecosystem and month, return counts
+- `compute_health_summary(repos, pr_df, issue_df, bot_df, bf_df)` 
+  → compute one-row-per-repo summary table for dashboard
+- `get_pr_stage_counts(df)` 
+  → count PRs at each stage (opened, merged, closed) for Sankey
+
+---
+
+### `app/components/layout.py`
+
+
+This file defines the visual structure of the entire 
+page. Think of it as the HTML skeleton.
+
+What to write:
+- `create_filters()` function
+  → Returns the top filter bar with repo dropdown, 
+    ecosystem dropdown, date range slider, bot toggle
+- `create_panels()` function  
+  → Returns the six chart panels arranged in a 3-row 
+    2-column grid. Each panel has a title and a 
+    `dcc.Graph` with an id that callbacks will target.
+
+Chart IDs that must match callbacks exactly:
+- `streamgraph`
+- `network-graph`
+- `pr-sankey`
+- `issue-heatmap`
+- `bot-bar`
+- `health-dashboard`
+
+---
+
+### `app/components/filters.py`
+
+
+Small helper functions for processing filter values.
+
+What to write:
+- `get_month_range(slider_values)` 
+  → converts slider [0, 23] to ('2023-01', '2024-12')
+
+---
+
+### `app/callbacks/streamgraph_cb.py`
+
+
+Visualization: Technology Adoption Trends  
+Chart type: Stacked area chart (streamgraph)  
+Why this chart: Shows how relative activity proportions 
+shift across ecosystems over time — a line chart cannot 
+show this clearly when multiple series are stacked.
+
+What to write:
+- One `@app.callback` that reads from repo-filter, 
+  ecosystem-filter, month-slider, bot-toggle
+- Calls `load_events()` then `compute_ecosystem_monthly()`
+- Builds a `go.Scatter` with `stackgroup='one'` for each 
+  ecosystem — one trace per ecosystem
+- Returns the figure to the `streamgraph` output
+
+---
+
+### `app/callbacks/network_cb.py`
+
+
+Visualization: Contributor Collaboration Network  
+Chart type: Force-directed network graph  
+Why this chart: Reveals contributor clusters and central 
+nodes organically — no table or bar chart can show network 
+structure.
+
+What to write:
+- One `@app.callback` that reads from repo-filter
+- Calls `load_contributor_network(repo)` for the first 
+  selected repo
+- Uses NetworkX to compute node positions 
+  (`nx.spring_layout`)
+- Builds a plotly figure with edges as `go.Scatter` lines 
+  and nodes as `go.Scatter` markers
+- Node size = how many edges (degree centrality)
+- Node color = red if bus_factor risk, green otherwise
+- Returns figure to `network-graph` output
+
+---
+
+### `app/callbacks/sankey_cb.py`
+
+
+Visualization: PR Lifecycle and Review Latency  
+Chart type: Sankey diagram + box plots  
+Why this chart: Sankey shows where PRs drop off or stall 
+at each stage — something a histogram alone cannot show.
+
+What to write:
+- One `@app.callback` reading repo-filter, month-slider, 
+  bot-toggle
+- Calls `load_events()` then `get_pr_stage_counts()`
+- Builds `go.Sankey` with three nodes:
+  - Opened → Merged
+  - Opened → Closed Without Merge
+- Also add a box plot of merge latency from 
+  `load_pr_latency()` as a second subplot
+- Returns figure to `pr-sankey` output
+
+---
+
+### `app/callbacks/heatmap_cb.py`
+
+
+Visualization: Issue Responsiveness Calendar Heatmap  
+Chart type: Calendar heatmap  
+Why this chart: Gaps in daily activity immediately signal 
+maintainer inactivity — a line chart would hide these gaps.
+
+What to write:
+- One `@app.callback` reading repo-filter, month-slider
+- Calls `load_events()`, filters to IssuesEvent and 
+  IssueCommentEvent only
+- Groups by date to get daily counts
+- Builds a `go.Heatmap` where:
+  - x = week of year
+  - y = day of week (Mon-Sun)
+  - z = number of issue events that day
+- Returns figure to `issue-heatmap` output
+
+---
+
+### `app/callbacks/bot_bar_cb.py`
+
+
+Visualization: Bot vs Human Activity  
+Chart type: Stacked bar chart  
+Why this chart: Shows the exact split of automated vs 
+real human activity per repo — critical for understanding 
+whether activity metrics are honest.
+
+What to write:
+- One `@app.callback` reading repo-filter, month-slider
+- Calls `load_bot_activity(repos)`
+- Aggregates bot_events and human_events per repo
+- Builds `go.Bar` with two traces — one for human 
+  (blue), one for bot (red) — with `barmode='stack'`
+- Returns figure to `bot-bar` output
+
+---
+
+### `app/callbacks/dashboard_cb.py`
+
+
+Visualization: Repository Health Summary Dashboard  
+Chart type: KPI table or indicator cards  
+Why this chart: Synthesizes all metrics into one 
+comparable view so users can evaluate repos side by 
+side in seconds.
+
+Build this LAST — it depends on all other features 
+being ready in the database.
+
+What to write:
+- One `@app.callback` reading repo-filter
+- Calls `load_pr_latency()`, `load_issue_response()`, 
+  `load_bot_activity()`, `load_bus_factor()`
+- Calls `compute_health_summary()` from analytics.py
+- Builds a `go.Table` showing one row per repo with:
+  - Median merge time
+  - Median issue response time  
+  - Bus factor score
+  - Bot activity percentage
+- Returns figure to `health-dashboard` output
+
+---
+
+### `app/app.py`
+
+
+This is the entry point. It should be short and clean.
+
+What to write:
+- Initialize the Dash app
+- Import layout functions from components/layout.py
+- Set `app.layout` using `create_filters()` and 
+  `create_panels()`
+- Import and call `register(app)` from every callback file
+- `if __name__ == '__main__': app.run(debug=True)`
+
+---
+
+### `visualizations/`
+**Owner: Everyone**
+
+Put EDA plots and screenshots here as the project progresses.
+
+What goes here:
+- EDA plots (event distribution, monthly trends, bot 
+  percentages) as PNG files
+- Screenshots of the working app panels once built
+- These will be used in the final report
+
+---
+
+
+
+## 11. What Comes Next
+
+### Build order for visualizations
+Build in this order — easiest to hardest:
+
+1. `bot_bar_cb.py` — just counts, simplest chart
+2. `streamgraph_cb.py` — monthly aggregation, stacked area
+3. `heatmap_cb.py` — daily grouping, calendar layout
+4. `sankey_cb.py` — needs pr_latency table ready
+5. `network_cb.py` — needs contributor_network table + NetworkX
+6. `dashboard_cb.py` — built last, depends on everything else
+
+### How to combine everyone's work
+- Each person writes their callback file independently
+- Person 6 or 7 imports all callbacks in `app.py`
+- Feature CSV files are pushed to GitHub by each person
+- Person 1 or 2 loads all CSVs into the database and 
+  shares the updated database on Google Drive
+
+### Final deliverables
+- Working web application
+- Project report in LaTeX
+- GitHub repository with all code
+- Live demo during final exam week
+
+---
+
+*Last updated: July 2026*  
+*Update the status table whenever a task is completed*
