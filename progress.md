@@ -1433,20 +1433,16 @@ maintainers go quiet? Are there obvious gaps in activity
 that suggest the project slowed down or was abandoned?
 
 #### What data does it use?
-Reads from `features/issue_response.csv` using 
-`load_issue_response()` from data_loader.py.
-
-Uses the `opened_date` column to count how many issues 
-were opened each day.
+Reads from the main database using `load_events()` from `data_loader.py`.
+Passes the events to `compute_daily_issue_activity()` in `analytics.py`.
 
 #### How it works step by step
 1. Gets selected repos and month range from filters
-2. Loads issue_response.csv filtered to selected repos
-3. Filters to selected month range
-4. Counts issues opened per day
-5. Fills in missing dates with 0 so the calendar is complete
-6. Computes week_index and day_of_week for each date
-7. Builds a heatmap where:
+2. Loads raw issue events (IssuesEvent and IssueCommentEvent)
+3. Computes daily issue counts using the analytics engine
+4. Fills in missing dates with 0 so the calendar is complete
+5. Computes week_index and day_of_week for each date
+6. Builds a heatmap where:
    - x axis = week number
    - y axis = day of week (Mon to Sun)
    - color = number of issues that day (darker = more)
@@ -1479,21 +1475,14 @@ closed without merging? And how long does it take for
 a PR to get merged in each repository?
 
 #### What data does it use?
-Reads from `features/pr_latency.csv` using 
-`load_pr_latency()` from data_loader.py.
-
-The CSV has one row per merged PR:
-repo            | pr_number | opened_at | merged_at | latency_hours | month
-facebook/react  | 25963     | 2023-01-05| 2023-01-05| 12.4          | 2023-01
+Reads from the main database using `load_events()` from `data_loader.py` for the PR lifecycle counts, and `features/pr_latency.csv` using `load_pr_latency()` for the merge latency box plot.
+It computes the exact lifecycle counts using `get_pr_stage_counts()` in `analytics.py`.
 
 #### How it works step by step
-1. Gets selected repos and month range from filters
-2. Loads pr_latency.csv filtered to selected repos
-3. Filters to selected month range
-4. Counts merged PRs from the data
-5. Estimates closed-without-merge count as 42.8% of merged 
-   (based on historical GitHub ratio)
-6. Builds two charts side by side:
+1. Gets selected repos, month range, and bot toggle from filters
+2. Loads raw PR events and latency stats
+3. Computes the exact number of opened, merged, and closed-without-merge PRs
+4. Builds two charts side by side:
    - Left: Sankey diagram showing PR flow
    - Right: Box plot showing merge time distribution
 
@@ -1509,14 +1498,6 @@ The box plot shows the distribution of merge times —
 the median, the spread, and the outliers. It answers 
 "most PRs merge in X hours but some take weeks". A 
 single average number would hide this distribution.
-
-#### Note on closed-without-merge estimate
-The pr_latency.csv only contains merged PRs because 
-we could only compute latency for PRs that were 
-actually merged. Closed PRs have no merge timestamp. 
-We estimate closed-without-merge count using the 
-historical GitHub average ratio of ~30% closed 
-without merge vs 70% merged.
 
 #### Inputs it listens to
 - `repo-filter` dropdown
@@ -1534,20 +1515,14 @@ in developer activity over time? Is ML/Data becoming
 more dominant? Is Frontend activity stable or shrinking?
 
 #### What data does it use?
-Reads from `features/bot_activity.csv` using 
-`load_bot_activity()` from data_loader.py.
-
-Uses only human events (is_bot == 0) to show real 
-developer adoption, not automation.
-
-Groups events by ecosystem (Frontend, ML/Data, 
-Backend/DevOps) and month.
+Reads from the main database using `load_events()` from `data_loader.py`.
+It aggregates the events by ecosystem and month using `compute_ecosystem_monthly()` in `analytics.py`.
 
 #### How it works step by step
-1. Gets selected repos and ecosystem from filters
-2. Loads bot_activity.csv for selected repos
-3. Filters out bot events (is_bot == 1)
-4. Groups by year_month and ecosystem, sums event counts
+1. Gets selected repos, ecosystem, date range, and bot toggle from filters
+2. Loads all relevant events from the database
+3. Aggregates event counts by year_month and ecosystem
+4. Pivots the data so each ecosystem is a column
 5. Computes a symmetric baseline (centers the streams 
    around zero so it looks like a proper streamgraph)
 6. Adds one filled area trace per ecosystem
@@ -1711,6 +1686,86 @@ The network panel is different from the other five:
 | Issue Heatmap | dcc.Graph | `issue-heatmap` |
 | Bot Bar | dcc.Graph | `bot-bar` |
 | Health Dashboard | dcc.Graph | `health-dashboard` |
+
+---
+
+### `app/app.py`
+**Assigned to: [Name]**
+
+#### What does this file do?
+This is the entry point of the entire application. It brings everything together, connecting the visual layout (`components/layout.py`) with all the interactive logic (`callbacks/*.py`), and starts the local web server.
+
+#### How it works step by step
+1. Handles complex Python import paths to ensure all modules (`src`, `app`) can discover each other no matter where the script is run from.
+2. Initializes the `dash.Dash` application instance.
+3. Sets `app.layout` by calling `create_filters()` and `create_panels()` to construct the UI skeleton.
+4. Registers all the interactive callbacks by importing each `*_cb.py` file and calling its `register(app)` function.
+5. Starts the development server using `app.run(debug=True)` when run directly.
+
+#### The "ModuleNotFoundError" Bug (and how we fixed it)
+During development, we encountered a tricky `ModuleNotFoundError: No module named 'app.components'; 'app' is not a package` error when running `python3 app/app.py`. 
+
+This happened because of **Name Shadowing**: the folder was named `app/` and the script was named `app.py`. When Python runs a script, it automatically adds the script's folder to the *front* of its search path (`sys.path[0]`). So when we wrote `from app.components...`, Python looked inside `app.py` (thinking it was the `app` package) and crashed because a script doesn't have a `.components` attribute!
+
+**How we fixed it**: We added code at the very top of `app.py` to actively detect and remove the script's directory from `sys.path`, forcing Python to look at the root directory where it could properly discover the `app/` folder as a real package.
+
+---
+
+## 14. App User Guide & Functionality Overview
+
+This section is a complete, high-level summary of what the final interactive application is, what controls are available, and what each part of the dashboard actually shows to the end-user.
+
+### 🎛️ The Global Filters
+
+At the very top of the dashboard is the control panel. Changing any of these filters instantly updates the entire dashboard (except the network graph, which has its own specific dropdown).
+
+1. **Repository Filter**: A multi-select dropdown containing all 30 tracked repositories. You can select one, several, or all of them to compare them side-by-side. 
+2. **Ecosystem Filter**: A dropdown that lets you quickly filter the entire dataset down to just one category: `Frontend`, `ML/Data`, or `Backend/DevOps`.
+3. **Date Range Slider**: A two-handled slider covering Jan 2023 through Dec 2024. Sliding the handles restricts all data (PRs, issues, commits) to that specific time window.
+4. **Include Bot Activity Toggle**: A simple ON/OFF switch. When turned ON, automated bots (like `dependabot` or `pytorchmergebot`) are included in the activity counts. When OFF, the dashboard filters out bots, showing *only* real human developer activity.
+
+---
+
+### 📊 The Six Visualizations
+
+The dashboard is laid out in a 3-row, 2-column grid. Each panel is designed to answer a specific question about repository health.
+
+#### 1. Technology Adoption Streamgraph (Top Left)
+- **What it is**: A flowing, centered area chart ("streamgraph") showing activity volume over time.
+- **What it shows**: It aggregates total human activity grouped by Ecosystem. As time progresses from left to right, you can see which ecosystems are expanding (getting thicker) and which are shrinking (getting thinner).
+- **Why it matters**: It reveals macro-level trends in the developer community. For example, if ML/Data projects see a massive swell in late 2023 compared to Frontend, this streamgraph makes that industry shift immediately visible.
+
+#### 2. Contributor Collaboration Network (Top Right)
+- **What it is**: A force-directed node graph.
+- **What it shows**: The nodes (dots) are human developers, and the edges (lines connecting them) represent two people collaborating on the same Pull Request or Issue.
+- **Special Controls**: Because a network is specific to a single community, this panel has its own standalone dropdown to select exactly *one* repository.
+- **Why it matters**: It exposes the hidden social structure of the project. A healthy project looks like a dense spiderweb (many people collaborating). An at-risk project looks like a star or wheel (hundreds of people only interacting with one central maintainer). This panel also explicitly calculates and displays the **Bus Factor** (how many people control 50% of the project).
+
+#### 3. PR Lifecycle & Latency (Middle Left)
+- **What it is**: A split view containing a Sankey flow diagram on the left, and a Box Plot on the right.
+- **What it shows**: 
+  - *The Sankey*: Shows the flow of Pull Requests. It visually splits the total number of "Opened" PRs into those that successfully "Merged" versus those that were "Closed without Merge".
+  - *The Box Plot*: Shows the statistical distribution of how many hours it takes for a PR to get merged.
+- **Why it matters**: It tells you how welcoming a project is to contributors. If 80% of PRs are closed without merging, or if the median merge time is 3 weeks, developers will know not to waste their time submitting code to that project.
+
+#### 4. Issue Responsiveness Calendar Heatmap (Middle Right)
+- **What it is**: A GitHub-style calendar grid where each square represents a single day in the year.
+- **What it shows**: The color intensity of each square represents the number of Issue events (opened, commented, closed) that happened on that specific day. 
+- **Why it matters**: It is the best visual tool for spotting "ghosting" or maintainer burnout. If a calendar has consistent dark blocks, the project is highly active. If there are massive stretches of blank white space spanning weeks at a time, it means the maintainers went completely unresponsive.
+
+#### 5. Bot vs. Human Activity Breakdown (Bottom Left)
+- **What it is**: A stacked bar chart comparing the selected repositories.
+- **What it shows**: For each repository, it stacks the volume of *Human* events (blue) on top of *Automated Bot* events (red).
+- **Why it matters**: Open-source metrics can easily be faked or skewed by automation. A project might boast "100,000 events", but this chart will instantly reveal if 90,000 of those events were generated by a CI bot endlessly opening and closing test issues.
+
+#### 6. Repository Health Summary Dashboard (Bottom Right)
+- **What it is**: A clean, tabular scorecard.
+- **What it shows**: It aggregates all the most critical metrics from the other panels into one scannable list. For each selected repository, it shows:
+  - Median Merge Time (hrs)
+  - Median Issue Response Time (hrs)
+  - Bus Factor
+  - Bot Activity %
+- **Why it matters**: It serves as the final "Executive Summary". After exploring the nuanced charts, a user can look at this table to quickly rank and compare the final health scores of the repositories they are evaluating.
 
 ---
 *Last updated: July 2026*  
