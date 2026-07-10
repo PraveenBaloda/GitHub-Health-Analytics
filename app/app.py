@@ -1,99 +1,47 @@
-from dash import Dash, dcc, html
-import dash_cytoscape as cyto
-import plotly.express as px
-import sqlite3
-import pandas as pd
-
-app = Dash(__name__)
-
-# Load repo list for dropdown
 import os
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-conn = sqlite3.connect(os.path.join(BASE_DIR, 'github_analytics.db'))
-repos = pd.read_sql("SELECT DISTINCT repo FROM events", conn)['repo'].tolist()
-conn.close()
+import sys
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Fix name shadowing: Python automatically adds the script's directory to sys.path.
+# Because this file is named app.py and is inside a folder named app/, Python 
+# thinks the script itself is the 'app' module, causing imports to fail. 
+if script_dir in sys.path:
+    sys.path.remove(script_dir)
+
+# Ensure the root directory is in sys.path
+BASE_DIR = os.path.dirname(script_dir)
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+from dash import Dash, html
+from app.components.layout import create_filters, create_panels
+
+# Initialize the Dash app
+app = Dash(__name__)
+app.title = "GitHub Repository Health Analytics"
+
+# Set app.layout using functions from layout.py
 app.layout = html.Div([
-    html.H1("GitHub Repository Health Analytics"),
-
-    # Global filters
-    html.Div([
-        dcc.Dropdown(
-            id='repo-filter',
-            options=[{'label': r, 'value': r} for r in repos],
-            multi=True,
-            placeholder='Select repositories...'
-        ),
-        dcc.Dropdown(
-            id='ecosystem-filter',
-            options=[
-                {'label': 'Frontend', 'value': 'Frontend'},
-                {'label': 'ML/Data', 'value': 'ML/Data'},
-                {'label': 'Backend/DevOps', 'value': 'Backend/DevOps'}
-            ],
-            placeholder='Select ecosystem...'
-        )
-    ]),
-
-    # Placeholder panels
-    html.Div([
-        dcc.Graph(id='streamgraph'),
-        dcc.Graph(id='pr-sankey'),
-        dcc.Graph(id='issue-heatmap'),
-        dcc.Graph(id='bot-bar'),
-        dcc.Graph(id='health-dashboard'),
-    ]),
-
-    # Contributor Collaboration Network panel
-    # Network edges are per-repo, so this uses its own single-select
-    # dropdown rather than the global multi-select repo-filter.
-    html.Div([
-        html.H3("Contributor Collaboration Network"),
-        dcc.Dropdown(
-            id='network-repo-filter',
-            options=[{'label': r, 'value': r} for r in repos],
-            multi=False,
-            placeholder='Select a single repository...'
-        ),
-        html.Div(id='network-bus-factor-info', style={'margin': '8px 0'}),
-        cyto.Cytoscape(
-            id='contributor-network',
-            layout={'name': 'cose'},
-            style={'width': '100%', 'height': '600px'},
-            elements=[],
-            stylesheet=[
-                {
-                    'selector': 'node',
-                    'style': {
-                        'label': 'data(label)',
-                        'width': 'mapData(centrality, 0, 1, 12, 50)',
-                        'height': 'mapData(centrality, 0, 1, 12, 50)',
-                        'background-color': '#4C78A8',
-                        'font-size': '8px',
-                    }
-                },
-                {
-                    'selector': '.top-contributor',
-                    'style': {
-                        'background-color': '#F58518',
-                    }
-                },
-                {
-                    'selector': 'edge',
-                    'style': {
-                        'width': 'mapData(weight, 1, 10, 1, 6)',
-                        'line-color': '#CCCCCC',
-                        'curve-style': 'bezier',
-                    }
-                },
-            ],
-        ),
-    ]),
+    create_filters(),
+    create_panels()
 ])
 
-# Register callbacks (each module attaches its @app.callback to `app`
-# on import). Must come after app.layout is defined.
-from app.callbacks import streamgraph_cb, network_cb  # noqa: E402,F401
+# Register callbacks
+from app.callbacks import (
+    streamgraph_cb,
+    network_cb,
+    sankey_cb,
+    heatmap_cb,
+    bot_bar_cb,
+    dashboard_cb
+)
+
+streamgraph_cb.register(app)
+network_cb.register(app)
+sankey_cb.register(app)
+heatmap_cb.register(app)
+bot_bar_cb.register(app)
+dashboard_cb.register(app)
 
 if __name__ == '__main__':
     app.run(debug=True)
