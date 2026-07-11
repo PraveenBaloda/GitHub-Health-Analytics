@@ -16,9 +16,13 @@ def _empty_figure(message: str) -> go.Figure:
 def register(app):
     @app.callback(
         Output("streamgraph", "figure"),
-        [Input("repo-filter", "value"), Input("ecosystem-filter", "value"), Input("month-slider", "value"), Input("bot-toggle", "value")]
+        [Input("repo-filter", "value"), 
+         Input("ecosystem-filter", "value"), 
+         Input("month-slider", "value"), 
+         Input("bot-toggle", "value"),
+         Input("theme-toggle", "value")]
     )
-    def update_streamgraph(selected_repos, selected_ecosystem, month_range, include_bots):
+    def update_streamgraph(selected_repos, selected_ecosystem, month_range, include_bots, theme):
         start_month, end_month = get_month_range(month_range)
         include_bots_bool = bool(include_bots)
         
@@ -52,8 +56,9 @@ def register(app):
                 hovertemplate=f"<b>{eco}</b><br>%{{x}}<br>Events: " + pivot[eco].astype(str) + "<extra></extra>"
             ))
             
+        template = "plotly_dark" if theme == "dark" else "plotly_white"
         fig.update_layout(
-            xaxis=dict(title=None), yaxis=dict(showticklabels=False, title=None), template="plotly_white",
+            xaxis=dict(title=None), yaxis=dict(showticklabels=False, title=None), template=template,
             hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), margin=dict(t=25, b=20, l=10, r=10)
         )
         return fig

@@ -10,9 +10,10 @@ def register(app):
         Output('issue-heatmap', 'figure'),
         [Input('repo-filter', 'value'),
          Input('month-slider', 'value'),
-         Input('bot-toggle', 'value')]
+         Input('bot-toggle', 'value'),
+         Input('theme-toggle', 'value')]
     )
-    def update_issue_heatmap(selected_repos, month_range, include_bots):
+    def update_issue_heatmap(selected_repos, month_range, include_bots, theme):
         start_month, end_month = get_month_range(month_range)
         
         df = load_events(repos=selected_repos, start_month=start_month, end_month=end_month, include_bots=bool(include_bots))
@@ -50,9 +51,10 @@ def register(app):
             hovertemplate='Date: %{customdata}<br>Issues Opened: %{z}<extra></extra>', customdata=customdata_dates
         ))
         
+        template = 'plotly_dark' if theme == 'dark' else 'plotly_white'
         fig.update_layout(margin=dict(t=25, b=20, l=10, r=10), 
             xaxis=dict(tickmode='array', tickvals=monthly_ticks['week_index'], ticktext=monthly_ticks['date'].dt.strftime('%b %Y'), showgrid=False),
             yaxis=dict(autorange='reversed', showgrid=False),
-            template='plotly_white'
+            template=template
         )
         return fig
