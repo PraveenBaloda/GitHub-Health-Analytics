@@ -13,9 +13,10 @@ def register(app):
         Output('health-dashboard', 'figure'),
         [Input('repo-filter', 'value'),
          Input('month-slider', 'value'),
-         Input('bot-toggle', 'value')]
+         Input('bot-toggle', 'value'),
+         Input('theme-toggle', 'value')]
     )
-    def update_health_dashboard(selected_repos, month_range, include_bots):
+    def update_health_dashboard(selected_repos, month_range, include_bots, theme):
         if not selected_repos:
             return go.Figure(layout=dict(title="Select at least one repository to view its health summary"))
 
@@ -79,13 +80,14 @@ def register(app):
                 line=dict(color=colors[i % len(colors)])
             ))
 
+        template = 'plotly_dark' if theme == 'dark' else 'plotly_white'
         fig.update_layout(
             polar=dict(
-                radialaxis=dict(visible=False, range=[0, 100]),
+                radialaxis=dict(visible=True, range=[0, 100], ticksuffix='%')
             ),
             showlegend=True,
             legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=10)),
             margin=dict(t=25, b=20, l=25, r=25),
-            template='plotly_white'
+            template=template
         )
         return fig

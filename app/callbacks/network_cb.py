@@ -110,19 +110,27 @@ def register(app):
     @app.callback(
         Output("contributor-network", "elements"),
         Output("network-bus-factor-info", "children"),
+        Output("contributor-network", "stylesheet"),
         [Input("repo-filter", "value"),
          Input("month-slider", "value"),
-         Input("bot-toggle", "value")]
+         Input("bot-toggle", "value"),
+         Input("theme-toggle", "value")]
     )
-    def update_network(selected_repos, month_range, include_bots):
+    def update_network(selected_repos, month_range, include_bots, theme):
         """
         Rebuilds the contributor collaboration network when filters change.
         """
+        base_stylesheet = [
+            {'selector': 'node', 'style': {'font-size': '7px', 'width': '12px', 'height': '12px', 'background-color': '#4C78A8', 'color': '#f8fafc' if theme == 'dark' else '#333'}},
+            {'selector': '.top-contributor', 'style': {'label': 'data(label)', 'background-color': '#ef4444', 'width': '18px', 'height': '18px', 'font-size': '8px', 'font-weight': 'bold'}},
+            {'selector': 'edge', 'style': {'width': 'mapData(weight, 1, 30, 0.5, 4)', 'line-color': '#555' if theme == 'dark' else '#cccccc', 'opacity': 0.6}}
+        ]
+
         if not selected_repos:
             return [], html.Div(
                 "Select a repository above to view its contributor network.",
                 style={"color": "gray"},
-            )
+            ), base_stylesheet
 
         start_month, end_month = get_month_range(month_range)
         events_df = load_events(repos=selected_repos, start_month=start_month, end_month=end_month, include_bots=bool(include_bots))
@@ -131,7 +139,7 @@ def register(app):
             return [], html.Div(
                 f"No collaboration data available for selected repos.",
                 style={"color": "gray"},
-            )
+            ), base_stylesheet
 
         edges_df = compute_dynamic_network(events_df)
 
@@ -139,8 +147,8 @@ def register(app):
             return [], html.Div(
                 f"Not enough collaborations to build a network.",
                 style={"color": "gray"},
-            )
+            ), base_stylesheet
 
         elements = build_network_elements(edges_df)
         summary = build_bus_factor_summary(selected_repos, edges_df)
-        return elements, summary
+        return elements, summary, base_stylesheet

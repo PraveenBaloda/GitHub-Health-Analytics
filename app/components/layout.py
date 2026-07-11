@@ -42,7 +42,7 @@ def create_filters():
                     placeholder='Select repositories...'
                 )
             ], style={
-                'width': '35%',
+                'width': '30%',
                 'display': 'inline-block',
                 'verticalAlign': 'top',
                 'paddingRight': '15px'
@@ -91,7 +91,7 @@ def create_filters():
                     }
                 )
             ], style={
-                'width': '35%',
+                'width': '30%',
                 'display': 'inline-block',
                 'verticalAlign': 'top',
                 'paddingRight': '15px'
@@ -115,14 +115,34 @@ def create_filters():
                 'width': '10%',
                 'display': 'inline-block',
                 'verticalAlign': 'top'
+            }),
+            
+            # Theme toggle
+            html.Div([
+                html.Label("Theme",
+                           style={'fontWeight': 'bold',
+                                  'marginBottom': '4px'}),
+                dcc.RadioItems(
+                    id='theme-toggle',
+                    options=[
+                        {'label': 'Light', 'value': 'light'},
+                        {'label': 'Dark', 'value': 'dark'}
+                    ],
+                    value='light',
+                    inline=False
+                )
+            ], style={
+                'width': '10%',
+                'display': 'inline-block',
+                'verticalAlign': 'top'
             })
 
         ], style={
             'padding': '10px 15px',
-            'backgroundColor': '#ffffff',
+            'backgroundColor': 'var(--card-bg)',
             'borderRadius': '5px',
             'marginBottom': '10px',
-            'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+            'boxShadow': '0 4px 6px -1px var(--shadow-color)',
             'marginLeft': '5px',
             'marginRight': '5px'
         })
@@ -136,9 +156,9 @@ def create_panels():
     panel_style_base = {
         'padding': '10px',
         'boxSizing': 'border-box',
-        'backgroundColor': '#ffffff',
+        'backgroundColor': 'var(--card-bg)',
         'borderRadius': '5px',
-        'boxShadow': '0 1px 3px rgba(0,0,0,0.1)',
+        'boxShadow': '0 4px 6px -1px var(--shadow-color)',
         'margin': '5px',
         'display': 'flex',
         'flexDirection': 'column',
@@ -149,10 +169,10 @@ def create_panels():
     panel_style_mid = {**panel_style_base, 'width': 'calc(28% - 10px)'}
     panel_style_right = {**panel_style_base, 'width': 'calc(40% - 10px)'}
     
-    header_style = {'marginBottom': '5px', 'display': 'inline-block', 'fontSize': '15px'}
-    btn_style = {'float': 'right', 'cursor': 'pointer', 'border': 'none', 'background': '#f1f5f9', 'borderRadius': '3px', 'padding': '2px 8px', 'fontSize': '12px', 'fontWeight': 'bold', 'color': '#475569'}
-    p_style = {'color': 'grey', 'fontSize': '11px', 'marginTop': '0px', 'marginBottom': '4px'}
-    p_style_bottom = {'color': 'grey', 'fontSize': '11px', 'marginTop': '4px', 'marginBottom': '0px'}
+    header_style = {'marginBottom': '5px', 'display': 'inline-block', 'fontSize': '15px', 'color': 'var(--text-primary)'}
+    btn_style = {'float': 'right', 'cursor': 'pointer', 'border': 'none', 'background': 'var(--bg-color)', 'borderRadius': '3px', 'padding': '2px 8px', 'fontSize': '12px', 'fontWeight': 'bold', 'color': 'var(--text-primary)'}
+    p_style = {'color': 'var(--text-muted)', 'fontSize': '11px', 'marginTop': '0px', 'marginBottom': '4px'}
+    p_style_bottom = {'color': 'var(--text-muted)', 'fontSize': '11px', 'marginTop': '4px', 'marginBottom': '0px'}
     graph_style = {'height': '220px'}
 
     panels = html.Div([

@@ -7,9 +7,12 @@ from app.components.filters import get_month_range
 def register(app):
     @app.callback(
         Output('pr-sankey', 'figure'),
-        [Input('repo-filter', 'value'), Input('month-slider', 'value'), Input('bot-toggle', 'value')]
+        [Input('repo-filter', 'value'), 
+         Input('month-slider', 'value'), 
+         Input('bot-toggle', 'value'),
+         Input('theme-toggle', 'value')]
     )
-    def update_sankey(selected_repos, month_range, include_bots):
+    def update_sankey(selected_repos, month_range, include_bots, theme):
         start_month, end_month = get_month_range(month_range)
         include_bots_bool = bool(include_bots)
         
@@ -78,11 +81,13 @@ def register(app):
                 trace.name = trace.name.split('=')[-1] if trace.name else "Merge Latency"
                 fig.add_trace(trace)
             
-        fig.update_layout(margin=dict(t=25, b=30, l=10, r=10), 
+        template = 'plotly_dark' if theme == 'dark' else 'plotly_white'
+        fig.update_layout(
+            margin=dict(t=25, b=20, l=10, r=10),
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             xaxis2=dict(domain=[0.60, 1.0], title="Repository" if len(selected_repos) > 1 else "", showgrid=True),
             yaxis2=dict(domain=[0, 1], anchor='x2', showgrid=True, type='log', title="Merge Latency (hrs)"),
-            template='plotly_white', showlegend=False
+            template=template, showlegend=False
         )
         return fig

@@ -9,9 +9,12 @@ from app.components.filters import get_month_range
 def register(app):
     @app.callback(
         Output('bot-bar', 'figure'),
-        [Input('repo-filter', 'value'), Input('month-slider', 'value')]
+        [Input('repo-filter', 'value'),
+         Input('month-slider', 'value'),
+         Input('bot-toggle', 'value'),
+         Input('theme-toggle', 'value')]
     )
-    def update_bot_bar(selected_repos, month_range):
+    def update_bot_bar(selected_repos, month_range, include_bots, theme):
         start_month, end_month = get_month_range(month_range)
         
         df = load_bot_activity(selected_repos, start_month=start_month, end_month=end_month)
@@ -35,7 +38,8 @@ def register(app):
         fig.add_trace(go.Bar(x=pivot_df.index, y=human_events, name='Human Activity', marker_color='#1f77b4'))
         fig.add_trace(go.Bar(x=pivot_df.index, y=bot_events, name='Bot Activity', marker_color='#d62728'))
         
+        template = 'plotly_dark' if theme == 'dark' else 'plotly_white'
         fig.update_layout(margin=dict(t=25, b=20, l=10, r=10), 
-            barmode='stack', template='plotly_white', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            barmode='stack', template=template, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         return fig
