@@ -15,25 +15,16 @@ def create_filters():
     """
     return html.Div([
 
-        html.H1(
-            "GitHub Repository Health Analytics",
-            style={
-                'textAlign': 'center',
-                'marginBottom': '5px',
-                'fontSize': '24px'
-            }
-        ),
-        html.P(
-            "CS661 Big Data Visual Analytics | IIT Kanpur | Group __",
-            style={
-                'textAlign': 'center',
-                'color': 'grey',
-                'marginTop': '0px',
-                'marginBottom': '15px'
-            }
-        ),
-
-        html.Hr(),
+        html.Div([
+            html.H2(
+                "GitHub Repository Health Analytics",
+                style={'display': 'inline', 'margin': '0', 'fontSize': '22px'}
+            ),
+            html.Span(
+                " | CS661 Big Data Visual Analytics | IIT Kanpur | Group __",
+                style={'color': 'grey', 'marginLeft': '10px'}
+            )
+        ], style={'textAlign': 'center', 'marginBottom': '10px'}),
 
         html.Div([
 
@@ -127,10 +118,10 @@ def create_filters():
             })
 
         ], style={
-            'padding': '15px',
+            'padding': '10px 15px',
             'backgroundColor': '#f5f5f5',
             'borderRadius': '5px',
-            'marginBottom': '20px'
+            'marginBottom': '10px'
         })
     ])
 
@@ -139,8 +130,7 @@ def create_panels():
     """
     Six visualization panels in a 2 row x 3 column grid for overview.
     """
-    panel_style = {
-        'width': '32%',
+    panel_style_base = {
         'display': 'inline-block',
         'verticalAlign': 'top',
         'padding': '10px',
@@ -151,10 +141,15 @@ def create_panels():
         'margin': '5px'
     }
     
+    panel_style_left = {**panel_style_base, 'width': '30%'}
+    panel_style_mid = {**panel_style_base, 'width': '26%'}
+    panel_style_right = {**panel_style_base, 'width': '39%'}
+    
     header_style = {'marginBottom': '5px', 'display': 'inline-block', 'fontSize': '15px'}
     btn_style = {'float': 'right', 'cursor': 'pointer', 'border': 'none', 'background': '#f1f5f9', 'borderRadius': '3px', 'padding': '2px 8px', 'fontSize': '12px', 'fontWeight': 'bold', 'color': '#475569'}
     p_style = {'color': 'grey', 'fontSize': '11px', 'marginTop': '0px', 'marginBottom': '4px'}
-    graph_style = {'height': '200px'}
+    p_style_bottom = {'color': 'grey', 'fontSize': '11px', 'marginTop': '4px', 'marginBottom': '0px'}
+    graph_style = {'height': '240px'}
 
     panels = html.Div([
 
@@ -168,7 +163,7 @@ def create_panels():
                 ]),
                 html.P("Monthly human activity volume by ecosystem", style=p_style),
                 dcc.Graph(id='streamgraph', style=graph_style, config={'displayModeBar': False})
-            ], style=panel_style),
+            ], style=panel_style_left),
 
             # Panel 2 — Contributor Network
             html.Div([
@@ -180,14 +175,14 @@ def create_panels():
                 cyto.Cytoscape(
                     id='contributor-network',
                     layout={'name': 'cose'},
-                    style={'width': '100%', 'height': '150px'},
+                    style={'width': '100%', 'height': '260px'},
                     stylesheet=[
                         {'selector': 'node', 'style': {'font-size': '7px', 'width': '12px', 'height': '12px', 'background-color': '#4C78A8', 'color': '#333'}},
                         {'selector': '.top-contributor', 'style': {'label': 'data(label)', 'background-color': '#ef4444', 'width': '18px', 'height': '18px', 'font-size': '8px', 'font-weight': 'bold'}},
                         {'selector': 'edge', 'style': {'width': 'mapData(weight, 1, 30, 0.5, 4)', 'line-color': '#cccccc', 'opacity': 0.6}}
                     ]
                 )
-            ], style=panel_style),
+            ], style=panel_style_mid),
 
             # Panel 3 — PR Sankey
             html.Div([
@@ -195,9 +190,17 @@ def create_panels():
                     html.H4("PR Lifecycle & Latency", style=header_style),
                     html.Button("↗ Expand", id="btn-expand-sankey", style=btn_style)
                 ]),
-                html.P("Flow of PRs and review latency distribution", style=p_style),
-                dcc.Graph(id='pr-sankey', style=graph_style, config={'displayModeBar': False})
-            ], style=panel_style),
+                dcc.Graph(id='pr-sankey', style=graph_style, config={'displayModeBar': False}),
+                html.Div([
+                    html.Div([html.Span(style={'display': 'inline-block', 'width': '8px', 'height': '8px', 'backgroundColor': '#94a3b8', 'marginRight': '4px'}), html.Span("Opened PRs", style={'fontSize': '10px', 'marginRight': '10px', 'color': 'gray'})], style={'display': 'inline-block'}),
+                    html.Div([html.Span(style={'display': 'inline-block', 'width': '8px', 'height': '8px', 'backgroundColor': '#3b82f6', 'marginRight': '4px'}), html.Span("Reviewed", style={'fontSize': '10px', 'marginRight': '10px', 'color': 'gray'})], style={'display': 'inline-block'}),
+                    html.Div([html.Span(style={'display': 'inline-block', 'width': '8px', 'height': '8px', 'backgroundColor': '#f59e0b', 'marginRight': '4px'}), html.Span("Unreviewed", style={'fontSize': '10px', 'marginRight': '10px', 'color': 'gray'})], style={'display': 'inline-block'}),
+                    html.Div([html.Span(style={'display': 'inline-block', 'width': '8px', 'height': '8px', 'backgroundColor': '#10b981', 'marginRight': '4px'}), html.Span("Merged", style={'fontSize': '10px', 'marginRight': '10px', 'color': 'gray'})], style={'display': 'inline-block'}),
+                    html.Div([html.Span(style={'display': 'inline-block', 'width': '8px', 'height': '8px', 'backgroundColor': '#ef4444', 'marginRight': '4px'}), html.Span("Closed w/o Merge", style={'fontSize': '10px', 'marginRight': '10px', 'color': 'gray'})], style={'display': 'inline-block'}),
+                    html.Div([html.Span(style={'display': 'inline-block', 'width': '8px', 'height': '8px', 'backgroundColor': '#64748b', 'marginRight': '4px'}), html.Span("Still Open", style={'fontSize': '10px', 'marginRight': '10px', 'color': 'gray'})], style={'display': 'inline-block'}),
+                ], style={'textAlign': 'center', 'marginTop': '5px', 'marginBottom': '10px', 'lineHeight': '1.5', 'position': 'relative', 'zIndex': '10'}),
+                html.P("Flow of PRs and review latency distribution", style=p_style_bottom)
+            ], style=panel_style_right),
 
         ]),
 
@@ -213,7 +216,7 @@ def create_panels():
                 ]),
                 html.P("Daily issue creation frequency", style=p_style),
                 dcc.Graph(id='issue-heatmap', style=graph_style, config={'displayModeBar': False})
-            ], style=panel_style),
+            ], style=panel_style_left),
 
             # Panel 5 — Bot Bar Chart
             html.Div([
@@ -223,7 +226,7 @@ def create_panels():
                 ]),
                 html.P("Proportion of automated activity", style=p_style),
                 dcc.Graph(id='bot-bar', style=graph_style, config={'displayModeBar': False})
-            ], style=panel_style),
+            ], style=panel_style_mid),
 
             # Panel 6 — Health Dashboard
             html.Div([
@@ -231,9 +234,9 @@ def create_panels():
                     html.H4("Health Dashboard", style=header_style),
                     html.Button("↗ Expand", id="btn-expand-dashboard", style=btn_style)
                 ]),
-                html.P("Key metrics compared side by side", style=p_style),
-                dcc.Graph(id='health-dashboard', style=graph_style, config={'displayModeBar': False})
-            ], style=panel_style)
+                dcc.Graph(id='health-dashboard', style=graph_style, config={'displayModeBar': False}),
+                html.P("Key metrics compared side by side", style=p_style_bottom)
+            ], style=panel_style_right)
         ]),
         
         # ── Modal Overlay ──
