@@ -124,4 +124,4 @@ Open your browser and go to: `http://127.0.0.1:8050`
 - **Course:** CS661 Big Data Visual Analytics
 - **Instructor:** Prof. Soumya Dutta
 - **Institute:** IIT Kanpur
-- **Semester:** 2025-26
+- **Semester:** 2025-26, Summer(III)
