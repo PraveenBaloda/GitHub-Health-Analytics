@@ -21,7 +21,7 @@ def create_filters():
                 style={'display': 'inline', 'margin': '0', 'fontSize': '22px'}
             ),
             html.Span(
-                " | CS661 Big Data Visual Analytics | IIT Kanpur | Group __",
+                " | CS661 Big Data Visual Analytics | IIT Kanpur | Group 1",
                 style={'color': 'grey', 'marginLeft': '10px'}
             )
         ], style={'textAlign': 'center', 'marginBottom': '10px'}),
